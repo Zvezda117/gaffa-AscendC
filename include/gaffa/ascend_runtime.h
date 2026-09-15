@@ -31,4 +31,8 @@ class AscendRuntime {
 
 [[nodiscard]] int ascend_device_count();
 
+namespace detail {
+void ensure_ascend_runtime_initialized();
+}
+
 }  // namespace gaffa
