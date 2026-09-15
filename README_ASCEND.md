@@ -1,56 +1,131 @@
 # GAFFA AscendC Port
 
-This worktree contains the staged CUDA-to-AscendC migration of GAFFA. The target is one portability-first backend for Atlas A2 and Atlas A3 products using the common `dav-2201` AscendC architecture target.
+This fork migrates GAFFA's device backend from CUDA to AscendC while retaining
+the CPU reference implementations and the non-GPU astronomy/IO layers. The
+target is one portability-first backend for **Atlas A2 and Atlas A3** using the
+common `dav-2201` AscendC architecture target.
 
 ## CANN build
 
-After installing CANN and sourcing its environment:
+Install a CANN development toolkit, activate the project environment, and source
+CANN through the repository helper:
 
 ```bash
-cmake -S . -B build -G Ninja -DGAFFA_ENABLE_ASCEND=ON -DBUILD_TESTING=ON
+conda env create -f environment.yml
+conda activate gaffa
+source env/dev.sh
+
+cmake -S . -B build -G Ninja \
+  -DGAFFA_ASCEND_ARCH=dav-2201 \
+  -DBUILD_TESTING=ON
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-The backend uses ACL runtime allocation/copies/streams on the host and AscendC kernels on the device.
+`env/dev.sh` discovers the CANN setup script and exposes the AscendC CMake
+package directory. The build uses `find_package(ASC)`, the `ASC` CMake language,
+ACL (`libascendcl.so`) on the host, and `.asc` kernels on the device.
 
-## Host-only contract check
-
-A machine without CANN can still validate public contracts, host orchestration, overflow checks, numerical reference behavior, and device-source contracts:
-
-```bash
-cmake -S . -B build-host -G Ninja -DGAFFA_ENABLE_ASCEND=OFF -DBUILD_TESTING=ON
-cmake --build build-host
-ctest --test-dir build-host --output-on-failure
-```
-
-Host-only mode is a development aid, not a replacement for BiSheng compilation and A2/A3 device tests.
-
-## Current migration status
+## Migration status
 
 - [x] Architecture/design and execution plan
-- [x] `AscendRuntime` interface and ACL implementation
+- [x] `AscendRuntime` and ACL host runtime
 - [x] Move-only GM memory and typed spans/buffers
-- [x] A2/A3 common launch contract (`dav-2201`)
-- [x] AscendC vector-add smoke kernel
-- [x] Time-series weighted downsampling and uint32-to-float conversion
-- [x] Preprocessing: running-median detrend, interpolation/subtraction, finite checks, normalization
-- [x] Direct single/multi-DM dedispersion and aligned dynamic-spectrum output
+- [x] A2/A3 common build/launch target (`dav-2201`)
+- [x] AscendC vector-add smoke path
+- [x] Weighted time-series downsampling and uint32-to-float conversion
+- [x] Preprocessing Program/workspace: running-median detrend, interpolation,
+      finite checks and normalization
+- [x] Direct single/multi-DM dedispersion
+- [x] Aligned dynamic-spectrum dedispersion
 - [x] True two-stage tiled subband dedispersion with residual-delay halo
-- [x] FFA prepare/transform/detection/search plus reusable execution plan/Program workspace
-- [ ] Python bindings
-- [ ] Benchmark migration
-- [ ] Final CUDA removal and full fork integration
+- [x] FFA prepare, transform, deterministic boxcar detection and batch search
+- [x] Reusable grouped `AscendFfaProgram` workspace
+- [x] Device-resident dedispersion → preprocessing → FFA search pipeline test
+- [x] Python FFA and dedispersion bindings (`backend="ascend"`)
+- [x] Ascend dedispersion and reusable-FFA benchmarks
+- [x] CANN/BiSheng developer environment and packaging configuration
+- [x] Physical removal of legacy CUDA headers, `.cu`/`.cuh` sources, CUDA-only
+      tests and mixed CUDA benchmarks
+- [x] Integration into the complete upstream fork while retaining CPU/IO,
+      candidate, harmonic, folding and filterbank functionality
+- [ ] BiSheng compilation on the target CANN release
+- [ ] Runtime parity tests on physical Atlas A2
+- [ ] Runtime parity tests on physical Atlas A3
 
-## Round history
+The final three unchecked items are hardware/toolchain verification requirements,
+not unimplemented migration modules.
 
-- Round 1: Ascend runtime, GM RAII memory, launch contract, vector-add smoke kernel.
-- Round 2: weighted time-series downsampling and uint32-to-float batch conversion.
-- Round 3: preprocessing Program/workspace plus exact/fast running median and normalization.
-- Round 4: direct single/multi-DM dedispersion and aligned-spectrum APIs/kernels with host-double delay tables.
-- Round 5: true two-stage subband dedispersion with tiled intermediate workspace and residual halo.
-- Round 6: FFA prepare plus materialized transform using host-precompiled copy/merge levels and A2/A3-common AscendC kernels.
-- Round 7: deterministic FFA boxcar detection and end-to-end batch search composition.
-- Round 8: grouped execution plan and move-only `AscendFfaProgram` with reusable large GM workspaces.
+## Verification layers
 
-See `ROUND1_MANIFEST.md` through `ROUND8_MANIFEST.md` for exact verification boundaries. A real CANN/BiSheng + A2/A3 runner is still required before device compilation/execution can be certified.
+### Source and host-contract tests
+
+The repository contains source-contract tests for each AscendC kernel family.
+They assert required A2/A3-safe kernel/launcher symbols and prevent CUDA-only
+constructs such as `threadIdx`, `blockIdx`, `__shared__`, warp shuffles, CUB and
+CUDA atomics from leaking back into the Ascend backend.
+
+Host-layout GTests cover:
+
+- GM span/buffer overflow contracts
+- weighted downsample plans against the CPU numerical reference
+- preprocessing workspace/layout validation
+- single/multi-DM delay tables against the CPU double-precision definition
+- FFA recursive schedule compilation and reusable workspace sizing
+
+During development, the reconstructed host/fake-ACL harness was freshly run with
+**22/22 tests passing** after the core migration and multi-device fixes. This is
+evidence for host orchestration and numerical contracts; it is not presented as
+an A2/A3 runtime result.
+
+### Device parity tests
+
+When an Ascend device is visible, GTest/PyTest device tests stop skipping and
+compare Ascend results with the retained CPU references. The end-to-end C++
+pipeline test covers:
+
+```text
+subband dedispersion (device)
+    -> uint32 to float (device)
+    -> preprocessing/normalization (device)
+    -> FFA transform/detection (device)
+    -> compact peaks (host)
+```
+
+Peak identity, phase, width, S/N, period and frequency are compared against the
+CPU path.
+
+## Numerical design decisions
+
+Dispersion delays remain a host-side double-precision calculation and are
+rounded to `int32` delay tables before upload. This preserves the original GAFFA
+scientific definition without requiring device FP64 for delay construction.
+Integer dedispersion accumulates into `uint32`; float input retains float
+accumulation.
+
+The FFA implementation does not translate CUDA warp/shared-memory mechanics
+one-for-one. Host code compiles deterministic copy/merge level schedules, AI
+Cores operate on independent series/rows, and detection writes deterministic
+per-slot phase/SNR records that are compacted on the host rather than through a
+single contended global atomic peak buffer.
+
+## Benchmarks
+
+After a release build:
+
+```bash
+just bench-dedispersion-ascend
+just bench-ffa-ascend
+```
+
+The FFA benchmark warms the reusable `AscendFfaProgram` before measuring
+steady-state execution so workspace allocation is not included in every
+iteration.
+
+## Verification boundary
+
+This repository is now an AscendC source migration, but the current ChatGPT
+execution environment does not contain CANN/BiSheng or an Atlas NPU. Therefore
+no claim is made that the present branch has already compiled or passed runtime
+tests on physical A2/A3 hardware. Production acceptance requires running the
+commands above on both target platforms and recording those results.
