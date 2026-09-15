@@ -88,7 +88,7 @@ test-cpp: build
 test-ascend: test-cpp
 
 coverage-cpp: deps
-    source env/dev.sh && mkdir -p coverage && \
+    source env/dev.sh && test -n "${GCOV:-}" && mkdir -p coverage && \
       cmake --fresh -S . -B build/coverage -G Ninja \
         -DCMAKE_TOOLCHAIN_FILE=build/conan/debug/conan_toolchain.cmake \
         -DCMAKE_BUILD_TYPE=Debug -DGAFFA_ENABLE_COVERAGE=ON \
@@ -98,7 +98,7 @@ coverage-cpp: deps
       cmake --build build/coverage && \
       ctest --test-dir build/coverage --output-on-failure && \
       "$CONDA_PREFIX/bin/gcovr" \
-        --gcov-executable "$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcov" \
+        --gcov-executable "$GCOV" \
         --root . --filter src/gaffa --filter include/gaffa --exclude tests/cpp \
         --exclude src/gaffa/bindings.cpp --exclude 'src/gaffa/python/.*' \
         --exclude src/gaffa/io/filterbank_legacy.cpp \
