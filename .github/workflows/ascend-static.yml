@@ -1,0 +1,36 @@
+name: Ascend static gates
+
+on:
+  push:
+    branches:
+      - feature/ascendc-port
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  zero-cuda-and-kernel-contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: python -m pip install --disable-pip-version-check pytest
+
+      - name: Verify legacy CUDA dependencies are absent
+        run: python tools/verify_no_cuda.py
+
+      - name: Verify AscendC kernel source contracts
+        run: >-
+          python -m pytest -q
+          tests/test_time_series_ascend_kernel_contract.py
+          tests/test_preprocessing_ascend_kernel_contract.py
+          tests/test_dedispersion_ascend_kernel_contract.py
+          tests/test_dedispersion_ascend_subband_kernel_contract.py
+          tests/test_ffa_ascend_kernel_contract.py
+          tests/test_ffa_ascend_detection_kernel_contract.py
