@@ -15,7 +15,7 @@ version = "0.1.0"
 requires-python = ">=3.12"
 readme = "README.md"
 authors = [{ name = "lintian233" }]
-description = "CUDA/C++ and Python hybrid project scaffold."
+description = "AscendC/C++ and Python library for pulsar processing and FFA searches."
 dependencies = [
   "numpy>=1.26",
 ]
@@ -36,17 +36,20 @@ minimum-version = "3.26"
 
 [tool.scikit-build.cmake.define]
 CMAKE_BUILD_TYPE = "Release"
+GAFFA_ASCEND_ARCH = "dav-2201"
 
 [tool.scikit-build.sdist]
 include = [
   "CMakeLists.txt",
   "conanfile.py",
   "environment.yml",
+  "env/**",
   "justfile",
   "include/**",
   "src/**",
   "python/**",
   "tests/**",
+  "README_ASCEND.md",
 ]
 exclude = [
   "build/**",
@@ -56,6 +59,9 @@ exclude = [
   ".github/**",
 ]
 
+# Wheel builds require a CANN development installation. Source CANN's
+# set_env.sh before invoking cibuildwheel so find_package(ASC), BiSheng,
+# acl/acl.h, and libascendcl are all visible to CMake.
 [tool.cibuildwheel]
 build = ["cp312-*"]
 archs = ["x86_64"]
@@ -64,13 +70,9 @@ skip = ["*-musllinux_*", "pp*"]
 [tool.cibuildwheel.linux]
 repair-wheel-command = "auditwheel repair -w {dest_dir} {wheel}"
 
-
 [tool.cibuildwheel.environment]
 CMAKE_BUILD_TYPE = "Release"
-CMAKE_CUDA_ARCHITECTURES = "75;80;86;89;90"
-CUDA_HOME = "/usr/local/cuda"
-CUDACXX = "/usr/local/cuda/bin/nvcc"
-NVCC_PREPEND_FLAGS = "--allow-unsupported-compiler"
+GAFFA_ASCEND_ARCH = "dav-2201"
 
 [tool.ruff]
 line-length = 100
