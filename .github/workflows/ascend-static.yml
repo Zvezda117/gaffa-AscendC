@@ -31,3 +31,4 @@ jobs:
           python tests/test_dedispersion_ascend_subband_kernel_contract.py
           python tests/test_ffa_ascend_kernel_contract.py
           python tests/test_ffa_ascend_detection_kernel_contract.py
+          python tests/test_ascend_cmake_link_contract.py
