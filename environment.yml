@@ -1,10 +1,8 @@
 name: gaffa
 channels:
-  - nvidia
   - conda-forge
 dependencies:
   - python=3.12
-  - cuda-toolkit=12.8
   - gcc_linux-64=13
   - gxx_linux-64=13
   - libgcc-ng>=13
@@ -21,3 +19,7 @@ dependencies:
   - ruff>=0.5
   - python-build
   - pip
+
+# CANN/BiSheng is intentionally not installed by Conda. Install a compatible
+# CANN development toolkit on the host (Atlas A2/A3) and source its set_env.sh
+# before configuring or building GAFFA.
