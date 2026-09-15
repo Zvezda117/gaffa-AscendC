@@ -17,10 +17,14 @@ for forbidden in [
     "static_cast<float>(tail_rows",
     "static_cast<float>(output_rows",
     "static_cast<float>(shift)",
+    "RoundMode::CAST_TRUNC",
 ]:
     assert forbidden not in ffa, (
-        f"ffa.asc: BiSheng A2/A3 rejects unsigned integer <-> float scalar cast: {forbidden}"
+        f"ffa.asc: unsupported A2/A3 scalar conversion remains: {forbidden}"
     )
+assert "RoundMode::CAST_FLOOR" in ffa, (
+    "ffa.asc: positive round-half-up conversion must use supported CAST_FLOOR after +0.5"
+)
 
 series = (kernel_dir / "time_series.asc").read_text()
 assert "static_cast<float>(input_gm_.GetValue" not in series, (
