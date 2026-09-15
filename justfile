@@ -71,6 +71,12 @@ bench-filterbank file="tests/data/basetest.fil" iterations="1": build-benchmarks
 bench-spectrum-cpu file="tests/data/basetest.fil" dm="100" iterations="3" chan_begin="0" chan_end="0": build-benchmarks
     source env/dev.sh && /usr/bin/time -v build/release/gaffa_dedispersion_spectrum_cpu_benchmark {{file}} {{dm}} {{iterations}} {{chan_begin}} {{chan_end}}
 
+bench-dedispersion-ascend file="tests/data/basetest.fil" ndm="32" dm_low="0" dm_step="1" iterations="5" device_id="0" subband_channels="32" ndm_per_nominal="32" time_tile_samples="81920": build-benchmarks
+    source env/dev.sh && /usr/bin/time -v build/release/gaffa_dedispersion_ascend_benchmark {{file}} {{ndm}} {{dm_low}} {{dm_step}} {{iterations}} {{device_id}} {{subband_channels}} {{ndm_per_nominal}} {{time_tile_samples}}
+
+bench-ffa-ascend nseries="8" nsamples="262144" iterations="5" device_id="0" tsamp="0.001" period_min="0.2" period_max="2.0": build-benchmarks
+    source env/dev.sh && /usr/bin/time -v build/release/gaffa_ffa_ascend_benchmark {{nseries}} {{nsamples}} {{iterations}} {{device_id}} {{tsamp}} {{period_min}} {{period_max}}
+
 test-cpp: build
     source env/dev.sh && ctest --test-dir build/dev --output-on-failure
 
