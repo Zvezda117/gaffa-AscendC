@@ -1,4 +1,5 @@
 #include "gaffa/ascend_memory.h"
+#include "gaffa/ascend_runtime.h"
 
 #include <acl/acl.h>
 
@@ -22,6 +23,7 @@ void check_acl(aclError status, const char* operation) {
 AscendDeviceMemory::AscendDeviceMemory(std::size_t bytes, int device_id)
     : bytes_(bytes), device_id_(bytes == 0 ? -1 : device_id) {
   if (bytes_ == 0) return;
+  detail::ensure_ascend_runtime_initialized();
   check_acl(aclrtSetDevice(device_id_), "aclrtSetDevice for aclrtMalloc");
   try {
     check_acl(aclrtMalloc(&data_, bytes_, ACL_MEM_MALLOC_HUGE_FIRST), "aclrtMalloc");
