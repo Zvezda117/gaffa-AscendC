@@ -49,6 +49,7 @@ AscendFfaProgram::AscendFfaProgram(
   impl_->execution_options = execution_options;
   impl_->workspace_shape = estimate_ffa_ascend_workspace(impl_->execution_plan, execution_options);
   impl_->device_id = program_options.device_id;
+  detail::ensure_ascend_runtime_initialized();
   check_acl_program(aclrtSetDevice(program_options.device_id), "aclrtSetDevice for Ascend FFA program");
   const std::size_t prepared_count = checked_mul_program(
       impl_->workspace_shape.series_tile_size, impl_->workspace_shape.max_prepared_nsamples,
