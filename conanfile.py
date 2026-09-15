@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.cmake import CMakeDeps, CMakeToolchain
+from conan.tools.cmake import CMakeToolchain
 
 
 class GaffaConan(ConanFile):
@@ -9,13 +9,9 @@ class GaffaConan(ConanFile):
 
     settings = "os", "arch", "compiler", "build_type"
 
-    def requirements(self):
-        self.requires("pybind11/2.13.6")
-        self.requires("gtest/1.16.0")
-
+    # Host build/test dependencies are provided by environment.yml. Keeping
+    # Conan dependency-free means this step only generates a toolchain file and
+    # does not need to download CMake, pybind11, GoogleTest, or their sources.
     def generate(self):
         toolchain = CMakeToolchain(self)
         toolchain.generate()
-
-        deps = CMakeDeps(self)
-        deps.generate()
