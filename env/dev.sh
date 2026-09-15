@@ -4,7 +4,7 @@ set -e
 
 EXPECTED_CONDA_ENV="gaffa"
 
-if [ -z "$CONDA_PREFIX" ]; then
+if [ -z "${CONDA_PREFIX:-}" ]; then
   echo "Error: CONDA_PREFIX is empty. Please run:"
   echo "  conda activate $EXPECTED_CONDA_ENV"
   return 1 2>/dev/null || exit 1
@@ -16,30 +16,76 @@ if [ "${CONDA_DEFAULT_ENV:-}" != "$EXPECTED_CONDA_ENV" ]; then
   return 1 2>/dev/null || exit 1
 fi
 
-export CUDA_HOME="$CONDA_PREFIX"
-export CUDA_PATH="$CONDA_PREFIX"
-export CUDACXX="$CONDA_PREFIX/bin/nvcc"
-export CMAKE_CUDA_COMPILER="$CUDACXX"
-
 export CC="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
 export CXX="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-g++"
-export CMAKE_CUDA_HOST_COMPILER="$CXX"
-export NVCC_CCBIN="$CXX"
 export CONAN_HOME="$PWD/.conan2"
+export GAFFA_ASCEND_ARCH="${GAFFA_ASCEND_ARCH:-dav-2201}"
 
-# Avoid leaking system CUDA headers/libs into conda CUDA builds.
-export CPATH="$CONDA_PREFIX/targets/x86_64-linux/include"
-export C_INCLUDE_PATH="$CONDA_PREFIX/targets/x86_64-linux/include"
-export CPLUS_INCLUDE_PATH="$CONDA_PREFIX/targets/x86_64-linux/include"
-export LIBRARY_PATH="$CONDA_PREFIX/targets/x86_64-linux/lib"
-export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$CONDA_PREFIX/targets/x86_64-linux/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+# CANN 8.5+ uses <install-root>/cann/set_env.sh. Older supported toolkit
+# installations may still expose ascend-toolkit/set_env.sh. An explicit
+# GAFFA_CANN_SET_ENV always wins.
+CANN_ENV=""
+if [ -n "${GAFFA_CANN_SET_ENV:-}" ] && [ -f "$GAFFA_CANN_SET_ENV" ]; then
+  CANN_ENV="$GAFFA_CANN_SET_ENV"
+else
+  candidates=(
+    "/usr/local/Ascend/cann/set_env.sh"
+    "$HOME/Ascend/cann/set_env.sh"
+    "/usr/local/Ascend/ascend-toolkit/set_env.sh"
+    "$HOME/Ascend/ascend-toolkit/set_env.sh"
+  )
+
+  if [ -n "${ASCEND_HOME_PATH:-}" ]; then
+    candidates+=(
+      "$ASCEND_HOME_PATH/set_env.sh"
+      "$(dirname "$ASCEND_HOME_PATH")/set_env.sh"
+    )
+  fi
+  if [ -n "${ASCEND_CANN_PACKAGE_PATH:-}" ]; then
+    candidates+=(
+      "$ASCEND_CANN_PACKAGE_PATH/set_env.sh"
+      "$(dirname "$ASCEND_CANN_PACKAGE_PATH")/set_env.sh"
+    )
+  fi
+
+  for candidate in "${candidates[@]}"; do
+    if [ -f "$candidate" ]; then
+      CANN_ENV="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -z "$CANN_ENV" ]; then
+  echo "Error: CANN set_env.sh was not found."
+  echo "Install a CANN development toolkit for Atlas A2/A3, then either:"
+  echo "  source /usr/local/Ascend/cann/set_env.sh"
+  echo "or set:"
+  echo "  export GAFFA_CANN_SET_ENV=/path/to/cann/set_env.sh"
+  return 1 2>/dev/null || exit 1
+fi
+
+# shellcheck disable=SC1090
+source "$CANN_ENV"
+
+if ! command -v bisheng >/dev/null 2>&1; then
+  echo "Error: BiSheng compiler is not on PATH after sourcing: $CANN_ENV"
+  echo "Verify that the CANN toolkit development components are installed."
+  return 1 2>/dev/null || exit 1
+fi
+
+if [ ! -x "$CC" ] || [ ! -x "$CXX" ]; then
+  echo "Error: Conda GCC/G++ toolchain is missing. Recreate environment.yml."
+  return 1 2>/dev/null || exit 1
+fi
 
 echo "CONDA_PREFIX=$CONDA_PREFIX"
-echo "CUDA_HOME=$CUDA_HOME"
-echo "CUDACXX=$CUDACXX"
+echo "CANN_ENV=$CANN_ENV"
+echo "ASCEND_HOME_PATH=${ASCEND_HOME_PATH:-<unset>}"
+echo "ASCEND_CANN_PACKAGE_PATH=${ASCEND_CANN_PACKAGE_PATH:-<unset>}"
+echo "GAFFA_ASCEND_ARCH=$GAFFA_ASCEND_ARCH"
 echo "CC=$CC"
 echo "CXX=$CXX"
-echo "CMAKE_CUDA_HOST_COMPILER=$CMAKE_CUDA_HOST_COMPILER"
 echo "CONAN_HOME=$CONAN_HOME"
 echo
 
@@ -47,9 +93,14 @@ which python
 python -m pip --version
 
 echo
-which nvcc
-nvcc --version
+which bisheng
+bisheng --version | head -n 1 || true
 
 echo
 "$CC" --version | head -n 1
 "$CXX" --version | head -n 1
+
+if command -v npu-smi >/dev/null 2>&1; then
+  echo
+  echo "npu-smi=$(command -v npu-smi)"
+fi
