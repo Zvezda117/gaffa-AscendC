@@ -74,9 +74,25 @@ file(GLOB_RECURSE GAFFA_ASCEND_KERNEL_SOURCES CONFIGURE_DEPENDS
   src/gaffa/ascend_kernels/*.asc
 )
 
+# Keep AscendC translation units in a pure-ASC target. The ASC CMake toolchain
+# attaches BiSheng's default host runtime libraries (ascendc_runtime, runtime,
+# profapi, logging/error-management support, etc.) to this target. Mixing the
+# .asc objects into a CXX static library loses that ASC link interface when a
+# CXX executable/module performs the final link.
+add_library(gaffa_ascend_kernels STATIC
+  ${GAFFA_ASCEND_KERNEL_SOURCES}
+)
+target_include_directories(gaffa_ascend_kernels
+  PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${GAFFA_ASCEND_INCLUDE_DIR}
+)
+target_compile_options(gaffa_ascend_kernels PRIVATE
+  $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${GAFFA_ASCEND_ARCH}>
+)
+
 add_library(gaffa_core STATIC
   ${GAFFA_CORE_SOURCES}
-  ${GAFFA_ASCEND_KERNEL_SOURCES}
 )
 target_include_directories(gaffa_core
   PUBLIC
@@ -84,13 +100,14 @@ target_include_directories(gaffa_core
   PRIVATE
     ${GAFFA_ASCEND_INCLUDE_DIR}
 )
-target_link_libraries(gaffa_core PUBLIC ${GAFFA_ASCENDCL_LIBRARY})
+target_link_libraries(gaffa_core
+  PUBLIC
+    gaffa_ascend_kernels
+    ${GAFFA_ASCENDCL_LIBRARY}
+)
 if(OpenMP_CXX_FOUND)
   target_link_libraries(gaffa_core PUBLIC OpenMP::OpenMP_CXX)
 endif()
-target_compile_options(gaffa_core PRIVATE
-  $<$<COMPILE_LANGUAGE:ASC>:--npu-arch=${GAFFA_ASCEND_ARCH}>
-)
 
 file(GLOB_RECURSE GAFFA_PYTHON_BINDING_SOURCES CONFIGURE_DEPENDS
   src/gaffa/python/*.cpp
