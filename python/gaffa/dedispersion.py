@@ -1,7 +1,8 @@
 """Python-facing dedispersion API.
 
 The functions in this module return host-resident NumPy arrays. Device-resident
-CUDA result objects are intentionally not part of the public Python API yet.
+Ascend result objects remain a C++ API; the Python surface provides synchronous
+CPU and Ascend host-input convenience paths.
 """
 
 from ._core import (
