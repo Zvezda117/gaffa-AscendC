@@ -50,6 +50,10 @@ AclProcessRuntime& process_runtime() {
 
 }  // namespace
 
+namespace detail {
+void ensure_ascend_runtime_initialized() { (void)process_runtime(); }
+}  // namespace detail
+
 AscendRuntime::AscendRuntime(int device_id) : device_id_(device_id) {
   (void)process_runtime();
   check_acl(aclrtSetDevice(device_id_), "aclrtSetDevice");
