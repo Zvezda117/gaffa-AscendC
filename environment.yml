@@ -3,10 +3,8 @@ channels:
   - conda-forge
 dependencies:
   - python=3.12
-  - gcc_linux-64=13
-  - gxx_linux-64=13
-  - libgcc-ng>=13
-  - libstdcxx-ng>=13
+  - c-compiler
+  - cxx-compiler
   - cmake>=3.26
   - ninja
   - conan>=2
@@ -20,6 +18,8 @@ dependencies:
   - python-build
   - pip
 
-# CANN/BiSheng is intentionally not installed by Conda. Install a compatible
-# CANN development toolkit on the host (Atlas A2/A3) and source its set_env.sh
-# before configuring or building GAFFA.
+# The conda-forge c-compiler/cxx-compiler metapackages resolve to the native
+# compiler toolchain for the host platform (for example linux-64 or
+# linux-aarch64). CANN/BiSheng is intentionally not installed by Conda. Install
+# a compatible CANN development toolkit on the Atlas A2/A3 host and source its
+# set_env.sh before configuring or building GAFFA.
