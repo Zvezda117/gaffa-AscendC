@@ -1,6 +1,20 @@
 cmake_minimum_required(VERSION 3.26)
 
-find_package(ASC REQUIRED)
+set(GAFFA_ASC_CMAKE_HINTS)
+if(NOT "$ENV{ASCEND_CANN_PACKAGE_PATH}" STREQUAL "")
+  list(APPEND GAFFA_ASC_CMAKE_HINTS
+    "$ENV{ASCEND_CANN_PACKAGE_PATH}/compiler/tikcpp/ascendc_kernel_cmake")
+endif()
+if(NOT "$ENV{ASCEND_HOME_PATH}" STREQUAL "")
+  list(APPEND GAFFA_ASC_CMAKE_HINTS
+    "$ENV{ASCEND_HOME_PATH}/compiler/tikcpp/ascendc_kernel_cmake")
+endif()
+list(APPEND GAFFA_ASC_CMAKE_HINTS
+  "/usr/local/Ascend/cann/compiler/tikcpp/ascendc_kernel_cmake"
+  "/usr/local/Ascend/ascend-toolkit/latest/compiler/tikcpp/ascendc_kernel_cmake"
+)
+
+find_package(ASC REQUIRED HINTS ${GAFFA_ASC_CMAKE_HINTS})
 project(gaffa LANGUAGES ASC CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -81,10 +95,6 @@ target_compile_options(gaffa_core PRIVATE
 file(GLOB_RECURSE GAFFA_PYTHON_BINDING_SOURCES CONFIGURE_DEPENDS
   src/gaffa/python/*.cpp
 )
-# The original file is CUDA-specific. The Ascend replacement exports the same
-# bind_dedispersion() symbol and Python classes/functions.
-list(FILTER GAFFA_PYTHON_BINDING_SOURCES EXCLUDE REGEX
-  ".*/python/dedispersion_bindings\\.cpp$")
 
 pybind11_add_module(_core NO_EXTRAS
   src/gaffa/bindings.cpp
@@ -102,10 +112,6 @@ if(BUILD_TESTING)
   file(GLOB_RECURSE GAFFA_CPP_TEST_SOURCES CONFIGURE_DEPENDS
     tests/cpp/test_*.cpp
   )
-  # CUDA-specific tests are removed after their Ascend counterparts land. Do
-  # not compile them in the Ascend-only build during the migration window.
-  list(FILTER GAFFA_CPP_TEST_SOURCES EXCLUDE REGEX
-    ".*/test_.*cuda.*\\.cpp$")
 
   add_executable(gaffa_cpp_tests
     src/gaffa/io/filterbank_legacy.cpp
@@ -130,11 +136,6 @@ endif()
 file(GLOB GAFFA_BENCHMARK_SOURCES CONFIGURE_DEPENDS
   benchmarks/*_benchmark.cpp
 )
-# The legacy mixed GPU benchmarks still include CUDA headers internally. Keep
-# them out of the Ascend build until dedicated Ascend variants replace them.
-list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*cuda.*")
-list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*/dm_search_benchmark\\.cpp$")
-list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*/ffa_transform_benchmark\\.cpp$")
 
 set(GAFFA_BENCHMARK_TARGETS)
 foreach(benchmark_source IN LISTS GAFFA_BENCHMARK_SOURCES)
