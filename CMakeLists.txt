@@ -130,7 +130,11 @@ endif()
 file(GLOB GAFFA_BENCHMARK_SOURCES CONFIGURE_DEPENDS
   benchmarks/*_benchmark.cpp
 )
+# The legacy mixed GPU benchmarks still include CUDA headers internally. Keep
+# them out of the Ascend build until dedicated Ascend variants replace them.
 list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*cuda.*")
+list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*/dm_search_benchmark\\.cpp$")
+list(FILTER GAFFA_BENCHMARK_SOURCES EXCLUDE REGEX ".*/ffa_transform_benchmark\\.cpp$")
 
 set(GAFFA_BENCHMARK_TARGETS)
 foreach(benchmark_source IN LISTS GAFFA_BENCHMARK_SOURCES)
