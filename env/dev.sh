@@ -16,8 +16,54 @@ if [ "${CONDA_DEFAULT_ENV:-}" != "$EXPECTED_CONDA_ENV" ]; then
   return 1 2>/dev/null || exit 1
 fi
 
-export CC="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-gcc"
-export CXX="$CONDA_PREFIX/bin/x86_64-conda-linux-gnu-g++"
+HOST_ARCH="$(uname -m)"
+case "$HOST_ARCH" in
+  x86_64|amd64)
+    CONDA_TRIPLET="x86_64-conda-linux-gnu"
+    ;;
+  aarch64|arm64)
+    CONDA_TRIPLET="aarch64-conda-linux-gnu"
+    ;;
+  *)
+    echo "Error: unsupported host architecture: $HOST_ARCH"
+    echo "Supported GAFFA development hosts are x86_64 and aarch64."
+    return 1 2>/dev/null || exit 1
+    ;;
+esac
+
+# Prefer the architecture-matched compiler installed by conda-forge's generic
+# c-compiler/cxx-compiler packages. Fall back to already activated CC/CXX, then
+# to the native system compiler so existing CANN developer images remain usable.
+if [ -x "$CONDA_PREFIX/bin/${CONDA_TRIPLET}-gcc" ]; then
+  export CC="$CONDA_PREFIX/bin/${CONDA_TRIPLET}-gcc"
+elif [ -n "${CC:-}" ] && [ -x "$CC" ]; then
+  export CC="$CC"
+elif command -v gcc >/dev/null 2>&1; then
+  export CC="$(command -v gcc)"
+else
+  echo "Error: no usable C compiler was found for host architecture $HOST_ARCH."
+  return 1 2>/dev/null || exit 1
+fi
+
+if [ -x "$CONDA_PREFIX/bin/${CONDA_TRIPLET}-g++" ]; then
+  export CXX="$CONDA_PREFIX/bin/${CONDA_TRIPLET}-g++"
+elif [ -n "${CXX:-}" ] && [ -x "$CXX" ]; then
+  export CXX="$CXX"
+elif command -v g++ >/dev/null 2>&1; then
+  export CXX="$(command -v g++)"
+else
+  echo "Error: no usable C++ compiler was found for host architecture $HOST_ARCH."
+  return 1 2>/dev/null || exit 1
+fi
+
+if [ -x "$CONDA_PREFIX/bin/${CONDA_TRIPLET}-gcov" ]; then
+  export GCOV="$CONDA_PREFIX/bin/${CONDA_TRIPLET}-gcov"
+elif command -v gcov >/dev/null 2>&1; then
+  export GCOV="$(command -v gcov)"
+else
+  export GCOV=""
+fi
+
 export CONAN_HOME="$PWD/.conan2"
 export GAFFA_ASCEND_ARCH="${GAFFA_ASCEND_ARCH:-dav-2201}"
 
@@ -91,10 +137,11 @@ if ! command -v bisheng >/dev/null 2>&1; then
 fi
 
 if [ ! -x "$CC" ] || [ ! -x "$CXX" ]; then
-  echo "Error: Conda GCC/G++ toolchain is missing. Recreate environment.yml."
+  echo "Error: selected host compiler is not executable. Recreate environment.yml or check system GCC/G++."
   return 1 2>/dev/null || exit 1
 fi
 
+echo "HOST_ARCH=$HOST_ARCH"
 echo "CONDA_PREFIX=$CONDA_PREFIX"
 echo "CANN_ENV=$CANN_ENV"
 echo "CANN_ROOT=$CANN_ROOT"
@@ -104,6 +151,7 @@ echo "ASC_CMAKE_DIR=$ASC_CMAKE_DIR"
 echo "GAFFA_ASCEND_ARCH=$GAFFA_ASCEND_ARCH"
 echo "CC=$CC"
 echo "CXX=$CXX"
+echo "GCOV=${GCOV:-<unavailable>}"
 echo "CONAN_HOME=$CONAN_HOME"
 echo
 
