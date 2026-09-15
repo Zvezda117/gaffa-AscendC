@@ -1,3 +1,4 @@
+#include "gaffa/ascend_runtime.h"
 #include "gaffa/vector_add.hpp"
 
 #include <gtest/gtest.h>
@@ -10,26 +11,24 @@ TEST(VectorAdd, EmptyInputs) {
 }
 
 TEST(VectorAdd, RejectsMismatchedInputSizes) {
-  EXPECT_THROW((void)gaffa::vector_add({1.0F}, {1.0F, 2.0F}), std::invalid_argument);
+  EXPECT_THROW((void)gaffa::vector_add({1.0F}, {1.0F, 2.0F}),
+               std::invalid_argument);
 }
 
-TEST(VectorAdd, HandlesSingleElementOnCudaDevice) {
-  if (gaffa::cuda_device_count() == 0) {
-    GTEST_SKIP() << "CUDA device is not visible";
+TEST(VectorAdd, HandlesSingleElementOnAscendDevice) {
+  if (gaffa::ascend_device_count() == 0) {
+    GTEST_SKIP() << "Ascend device is not visible";
   }
 
-  EXPECT_EQ(gaffa::vector_add({1.0F}, {2.0F}), (std::vector<float>{3.0F}));
+  EXPECT_EQ(gaffa::vector_add({1.0F}, {2.0F}),
+            (std::vector<float>{3.0F}));
 }
 
-TEST(CudaRuntime, ReportsCuda12OrNewer) {
-  EXPECT_GE(gaffa::cuda_runtime_version(), 12000);
-}
+class VectorAddAscendSizes : public testing::TestWithParam<int> {};
 
-class VectorAddCudaSizes : public testing::TestWithParam<int> {};
-
-TEST_P(VectorAddCudaSizes, AddsOnCudaDevice) {
-  if (gaffa::cuda_device_count() == 0) {
-    GTEST_SKIP() << "CUDA device is not visible";
+TEST_P(VectorAddAscendSizes, AddsOnAscendDevice) {
+  if (gaffa::ascend_device_count() == 0) {
+    GTEST_SKIP() << "Ascend device is not visible";
   }
 
   const int size = GetParam();
@@ -47,5 +46,5 @@ TEST_P(VectorAddCudaSizes, AddsOnCudaDevice) {
 
 INSTANTIATE_TEST_SUITE_P(
     BoundarySizes,
-    VectorAddCudaSizes,
+    VectorAddAscendSizes,
     testing::Values(255, 256, 257, 1024));
