@@ -18,15 +18,17 @@ for symbol in [
     "PositiveFloatFloorToUint32",
     "AscendC::ScalarCast",
     "AscendC::RoundMode::CAST_FLOOR",
-    "AscendC::Rsqrt",
+    "AscendC::Sqrt",
 ]:
     assert symbol in text, symbol
 assert "DataCopyPad" in text
 assert "TBuf<AscendC::TPosition::VECCALC>" in text
 assert ".GetValue(" in text
 assert ".SetValue(" not in text, "avoid GlobalTensor scalar stores / DCache hazards"
+assert "1.0F / stddev" in text, "normalisation must use reciprocal of precise Sqrt result"
 for forbidden in [
     "reinterpret_cast<GM_ADDR>(",
+    "AscendC::Rsqrt",
     "sqrtf(",
     "static_cast<float>(factor_",
     "static_cast<float>(sample)",

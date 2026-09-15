@@ -43,6 +43,12 @@ for forbidden in [
     assert forbidden not in pre, (
         f"preprocessing.asc: unsupported A2/A3 scalar operation remains: {forbidden}"
     )
-assert "AscendC::Rsqrt" in pre, (
-    "preprocessing.asc: normalisation must use the A2/A3-supported vector Rsqrt API"
+assert "AscendC::Sqrt" in pre, (
+    "preprocessing.asc: normalisation must use the A2/A3-supported vector Sqrt API"
+)
+assert "AscendC::Rsqrt" not in pre, (
+    "preprocessing.asc: approximate Rsqrt is not precise enough for normalisation parity"
+)
+assert "1.0F / stddev" in pre, (
+    "preprocessing.asc: normalisation must form reciprocal from the precise Sqrt result"
 )

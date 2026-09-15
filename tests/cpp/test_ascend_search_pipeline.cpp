@@ -9,10 +9,13 @@
 #include "gaffa/time_series_ascend.h"
 
 #include <gtest/gtest.h>
+#include <acl/acl.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <span>
 #include <vector>
 
@@ -61,8 +64,15 @@ TEST(AscendSearchPipeline, DeviceDedispersionPreprocessAndFfaMatchCpu) {
   constexpr std::size_t nchans = 4;
   constexpr std::size_t ndm = 2;
   std::vector<std::uint8_t> samples(nsamples * nchans);
-  for (std::size_t index = 0; index < samples.size(); ++index) {
-    samples[index] = static_cast<std::uint8_t>((index * 11 + 7) % 251);
+  for (std::size_t sample = 0; sample < nsamples; ++sample) {
+    for (std::size_t channel = 0; channel < nchans; ++channel) {
+      std::uint8_t value = static_cast<std::uint8_t>(
+          12 + (sample * 3 + channel * 5) % 7);
+      if (sample % 8 == 4) {
+        value = static_cast<std::uint8_t>(value + 180);
+      }
+      samples[sample * nchans + channel] = value;
+    }
   }
 
   const auto input = gaffa::make_host_sample_view<std::uint8_t>(
@@ -95,6 +105,7 @@ TEST(AscendSearchPipeline, DeviceDedispersionPreprocessAndFfaMatchCpu) {
   const auto cpu_dedispersed = gaffa::dedisperse_subband_cpu(
       input, frequency_mhz, dedispersion_plan, subband_options);
   std::vector<gaffa::AscendFfaBatchPeak> expected;
+  std::vector<float> cpu_preprocessed_batch(ndm * nsamples);
   for (std::size_t dm_index = 0; dm_index < ndm; ++dm_index) {
     std::vector<float> series(nsamples);
     for (std::size_t sample = 0; sample < nsamples; ++sample) {
@@ -104,6 +115,11 @@ TEST(AscendSearchPipeline, DeviceDedispersionPreprocessAndFfaMatchCpu) {
     const auto preprocessed = gaffa::preprocess_time_series_cpu(
         gaffa::TimeSeries{.data = std::move(series), .tsamp = 0.001},
         preprocess_plan);
+    std::copy(
+        preprocessed.data.begin(),
+        preprocessed.data.end(),
+        cpu_preprocessed_batch.begin() +
+            static_cast<std::ptrdiff_t>(dm_index * nsamples));
     const auto cpu_peaks =
         gaffa::search_ffa_cpu(preprocessed.data, ffa_plan, search_options);
     for (const auto& peak : cpu_peaks.peaks) {
@@ -139,6 +155,35 @@ TEST(AscendSearchPipeline, DeviceDedispersionPreprocessAndFfaMatchCpu) {
       preprocess_program, mutable_batch);
   preprocess_program.synchronize();
 
+  // Diagnostic boundary: verify whether parity is already lost before FFA.
+  std::vector<float> ascend_preprocessed_batch(ndm * nsamples);
+  ASSERT_EQ(
+      aclrtMemcpy(
+          ascend_preprocessed_batch.data(),
+          ascend_preprocessed_batch.size() * sizeof(float),
+          device_series.data(),
+          device_series.size() * sizeof(float),
+          ACL_MEMCPY_DEVICE_TO_HOST),
+      ACL_SUCCESS);
+
+  // CPU and A2/A3 preprocessing are both float32 at the output boundary,
+  // but their internal reduction/sqrt paths need not be bitwise identical.
+  // Keep a tight explicit tolerance that rejects the previous Rsqrt-scale
+  // error while permitting a few float32 rounding ULPs.
+  constexpr float kPreprocessToleranceScale =
+      8.0F * std::numeric_limits<float>::epsilon();
+
+  for (std::size_t i = 0; i < cpu_preprocessed_batch.size(); ++i) {
+    const float tolerance =
+        kPreprocessToleranceScale *
+        std::max(1.0F, std::abs(cpu_preprocessed_batch[i]));
+    EXPECT_NEAR(
+        ascend_preprocessed_batch[i],
+        cpu_preprocessed_batch[i],
+        tolerance)
+        << "preprocessing mismatch at index " << i;
+  }
+
   gaffa::AscendFfaProgram ffa_program(
       ffa_plan,
       {.device_id = ascend_dedispersed.device_id},
@@ -156,7 +201,12 @@ TEST(AscendSearchPipeline, DeviceDedispersionPreprocessAndFfaMatchCpu) {
     EXPECT_EQ(actual[index].peak.shift, expected[index].peak.shift);
     EXPECT_EQ(actual[index].peak.phase, expected[index].peak.phase);
     EXPECT_EQ(actual[index].peak.width_index, expected[index].peak.width_index);
-    EXPECT_FLOAT_EQ(actual[index].peak.snr, expected[index].peak.snr);
+    const float snr_tolerance =
+        1.0e-5F * std::max(1.0F, std::abs(expected[index].peak.snr));
+    EXPECT_NEAR(
+        actual[index].peak.snr,
+        expected[index].peak.snr,
+        snr_tolerance);
     EXPECT_DOUBLE_EQ(actual[index].peak.period, expected[index].peak.period);
     EXPECT_DOUBLE_EQ(actual[index].peak.frequency,
                      expected[index].peak.frequency);
