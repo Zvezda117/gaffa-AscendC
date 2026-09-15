@@ -124,25 +124,31 @@ def test_dedispersed_data_lifetime_survives_wrapper_scope() -> None:
     assert data[0, 0] >= 0
 
 
-@pytest.mark.skipif(gaffa.cuda_device_count() == 0, reason="CUDA device is not visible")
-def test_dedisperse_single_dm_cuda_returns_host_numpy_result() -> None:
+@pytest.mark.skipif(
+    gaffa.ascend_device_count() == 0,
+    reason="Ascend device is not visible",
+)
+def test_dedisperse_single_dm_ascend_returns_host_numpy_result() -> None:
     fb = Filterbank(BASETEST)
 
-    result = dedisperse_single_dm(fb, dm=0.0, backend="cuda")
+    result = dedisperse_single_dm(fb, dm=0.0, backend="ascend")
 
-    assert result.backend == "cuda"
+    assert result.backend == "ascend"
     assert result.shape == (1, fb.header.nsamples)
     assert result.data.dtype == np.uint32
 
 
-@pytest.mark.skipif(gaffa.cuda_device_count() == 0, reason="CUDA device is not visible")
-def test_dedisperse_spectrum_cuda_matches_cpu() -> None:
+@pytest.mark.skipif(
+    gaffa.ascend_device_count() == 0,
+    reason="Ascend device is not visible",
+)
+def test_dedisperse_spectrum_ascend_matches_cpu() -> None:
     fb = Filterbank(BASETEST)
 
     cpu = dedisperse_spectrum(fb, dm=1.0, backend="cpu")
-    cuda = dedisperse_spectrum(fb, dm=1.0, backend="cuda")
+    ascend = dedisperse_spectrum(fb, dm=1.0, backend="ascend")
 
-    assert cuda.backend == "cuda"
-    assert cuda.shape == cpu.shape
-    assert cuda.data.dtype == cpu.data.dtype
-    np.testing.assert_array_equal(cuda.data, cpu.data)
+    assert ascend.backend == "ascend"
+    assert ascend.shape == cpu.shape
+    assert ascend.data.dtype == cpu.data.dtype
+    np.testing.assert_array_equal(ascend.data, cpu.data)
