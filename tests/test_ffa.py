@@ -72,28 +72,28 @@ def test_ffa_search_rejects_unknown_backend_and_unused_device() -> None:
     series = np.zeros(8, dtype=np.float32)
     plan = make_plan(series.size)
 
-    with pytest.raises(ValueError, match="'cpu' or 'cuda'"):
+    with pytest.raises(ValueError, match="'cpu' or 'ascend'"):
         ffa.ffa_search(series, plan, backend="opencl")
     with pytest.raises(ValueError, match="only valid"):
         ffa.ffa_search(series, plan, device_id=1)
 
 
-@pytest.mark.skipif(gaffa.cuda_device_count() == 0, reason="CUDA device required")
-def test_ffa_search_cuda_matches_cpu() -> None:
+@pytest.mark.skipif(gaffa.ascend_device_count() == 0, reason="Ascend device required")
+def test_ffa_search_ascend_matches_cpu() -> None:
     series = np.array([0, 0, 0, 5, 0, 0, 0, 5], dtype=np.float32)
     plan = make_plan(series.size)
 
     cpu_peaks = ffa.ffa_search(series, plan, snr_threshold=1.0)
-    cuda_peaks = ffa.ffa_search(
-        series, plan, snr_threshold=1.0, backend="cuda"
+    ascend_peaks = ffa.ffa_search(
+        series, plan, snr_threshold=1.0, backend="ascend"
     )
 
-    assert len(cuda_peaks) == len(cpu_peaks)
-    for cpu_peak, cuda_peak in zip(cpu_peaks, cuda_peaks, strict=True):
-        assert cuda_peak.period == pytest.approx(cpu_peak.period)
-        assert cuda_peak.frequency == pytest.approx(cpu_peak.frequency)
-        assert cuda_peak.snr == pytest.approx(cpu_peak.snr)
-        assert cuda_peak.width == cpu_peak.width
-        assert cuda_peak.phase == cpu_peak.phase
-        assert cuda_peak.shift == cpu_peak.shift
-        assert cuda_peak.bins == cpu_peak.bins
+    assert len(ascend_peaks) == len(cpu_peaks)
+    for cpu_peak, ascend_peak in zip(cpu_peaks, ascend_peaks, strict=True):
+        assert ascend_peak.period == pytest.approx(cpu_peak.period)
+        assert ascend_peak.frequency == pytest.approx(cpu_peak.frequency)
+        assert ascend_peak.snr == pytest.approx(cpu_peak.snr)
+        assert ascend_peak.width == cpu_peak.width
+        assert ascend_peak.phase == cpu_peak.phase
+        assert ascend_peak.shift == cpu_peak.shift
+        assert ascend_peak.bins == cpu_peak.bins
