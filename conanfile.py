@@ -13,9 +13,6 @@ class GaffaConan(ConanFile):
         self.requires("pybind11/2.13.6")
         self.requires("gtest/1.16.0")
 
-    def build_requirements(self):
-        self.tool_requires("cmake/3.31.6")
-
     def generate(self):
         toolchain = CMakeToolchain(self)
         toolchain.generate()
