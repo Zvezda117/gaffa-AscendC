@@ -8,4 +8,8 @@ assert "gaffa_convert_uint32_to_float_kernel" in text
 assert "DataCopyPad" in text, "tail-safe GM output must use non-aligned DataCopyPad"
 assert ".GetValue(" in text, "baseline scalar implementation must read GM safely"
 assert ".SetValue(" not in text, "do not use GlobalTensor::SetValue / DCache scalar GM stores"
-assert "static_cast<float>" in text, "uint32 conversion must preserve unsigned semantics"
+assert "Uint32ToFloat" in text, "uint32-to-float conversion needs an A2/A3-safe helper"
+assert "static_cast<std::int64_t>(value)" in text, (
+    "uint32-to-float conversion must avoid the BiSheng-forbidden direct unsigned/float cast"
+)
+assert "static_cast<float>(input_gm_.GetValue" not in text
