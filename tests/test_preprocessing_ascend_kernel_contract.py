@@ -14,11 +14,26 @@ for symbol in [
     "gaffa_launch_running_median_ascend",
     "gaffa_launch_interpolate_subtract_ascend",
     "gaffa_launch_normalise_ascend",
+    "Uint32ToFloat",
+    "PositiveFloatFloorToUint32",
+    "AscendC::ScalarCast",
+    "AscendC::RoundMode::CAST_FLOOR",
+    "AscendC::Rsqrt",
 ]:
     assert symbol in text, symbol
 assert "DataCopyPad" in text
 assert "TBuf<AscendC::TPosition::VECCALC>" in text
 assert ".GetValue(" in text
 assert ".SetValue(" not in text, "avoid GlobalTensor scalar stores / DCache hazards"
-assert "__shared__" not in text
-assert "__shfl" not in text
+for forbidden in [
+    "reinterpret_cast<GM_ADDR>(",
+    "sqrtf(",
+    "static_cast<float>(factor_",
+    "static_cast<float>(sample)",
+    "static_cast<float>(nsamples_)",
+    "static_cast<float>(lower)",
+    "static_cast<std::uint32_t>(position)",
+    "__shared__",
+    "__shfl",
+]:
+    assert forbidden not in text, forbidden
