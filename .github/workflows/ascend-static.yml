@@ -24,6 +24,7 @@ jobs:
 
       - name: Verify AscendC kernel source contracts
         run: |
+          python tests/test_bisheng_a2_a3_compile_contract.py
           python tests/test_time_series_ascend_kernel_contract.py
           python tests/test_preprocessing_ascend_kernel_contract.py
           python tests/test_dedispersion_ascend_kernel_contract.py
