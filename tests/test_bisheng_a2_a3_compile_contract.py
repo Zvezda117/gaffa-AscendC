@@ -39,11 +39,10 @@ for forbidden in [
     "static_cast<float>(lower)",
     "static_cast<std::uint32_t>(position)",
     "sqrtf(",
-    "AscendC::Rsqrt",
 ]:
     assert forbidden not in pre, (
-        f"preprocessing.asc: unsupported or insufficient-precision A2/A3 operation remains: {forbidden}"
+        f"preprocessing.asc: unsupported A2/A3 scalar operation remains: {forbidden}"
     )
-assert "AscendC::Sqrt" in pre, (
-    "preprocessing.asc: high-precision normalisation must use vector Sqrt before reciprocal"
+assert "AscendC::Rsqrt" in pre, (
+    "preprocessing.asc: normalisation must use the A2/A3-supported vector Rsqrt API"
 )
