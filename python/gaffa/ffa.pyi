@@ -87,7 +87,7 @@ def ffa_search(
     *,
     snr_threshold: float = 6.0,
     max_peaks: int | None = None,
-    backend: Literal["cpu", "cuda"] = "cpu",
+    backend: Literal["cpu", "ascend"] = "cpu",
     device_id: int = 0,
 ) -> list[FfaPeak]:
     """Run FFA peak detection on one preprocessed time series.
@@ -106,10 +106,10 @@ def ffa_search(
         Optional positive raw-peak safety limit. A reached limit raises rather
         than truncating the result.
     backend
-        ``"cpu"`` or ``"cuda"``. The CUDA path uploads the host input once
-        and returns only compact raw peak records.
+        ``"cpu"`` or ``"ascend"``. The Ascend path uploads the host input once
+        to the selected NPU and returns compact raw peak records.
     device_id
-        CUDA device ordinal. It must remain zero for the CPU backend.
+        Ascend device ordinal. It must remain zero for the CPU backend.
 
     Returns
     -------
