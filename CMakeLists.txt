@@ -49,6 +49,14 @@ set(GAFFA_ASCEND_HINTS
 )
 list(FILTER GAFFA_ASCEND_HINTS EXCLUDE REGEX "^$")
 
+set(GAFFA_ASCEND_LIBRARY_SUFFIXES
+  lib64
+  aarch64-linux/lib64
+  x86_64-linux/lib64
+  runtime/lib64
+  runtime/lib64/stub
+)
+
 find_path(GAFFA_ASCEND_INCLUDE_DIR
   NAMES acl/acl.h
   HINTS ${GAFFA_ASCEND_HINTS}
@@ -56,11 +64,43 @@ find_path(GAFFA_ASCEND_INCLUDE_DIR
   REQUIRED
 )
 
-find_library(GAFFA_ASCENDCL_LIBRARY
-  NAMES ascendcl
-  HINTS ${GAFFA_ASCEND_HINTS}
-  PATH_SUFFIXES lib64 runtime/lib64 runtime/lib64/stub
-  REQUIRED
+function(gaffa_find_ascend_library output_var)
+  find_library(${output_var}
+    NAMES ${ARGN}
+    HINTS ${GAFFA_ASCEND_HINTS}
+    PATH_SUFFIXES ${GAFFA_ASCEND_LIBRARY_SUFFIXES}
+    NO_DEFAULT_PATH
+    REQUIRED
+  )
+endfunction()
+
+# The final GAFFA artifacts are linked by the normal host CXX linker (GTest,
+# pybind11, and benchmark executables). CANN only injects the AscendC default
+# host runtime automatically when the final link language is ASC, so discover
+# and propagate the documented runtime explicitly for CXX final links.
+gaffa_find_ascend_library(GAFFA_ASCENDC_RUNTIME_LIBRARY ascendc_runtime)
+gaffa_find_ascend_library(GAFFA_ASCEND_RUNTIME_LIBRARY runtime)
+gaffa_find_ascend_library(GAFFA_ASCEND_PROFAPI_LIBRARY profapi)
+# CANN 9.x uses unified_dlog; ascendalog is retained as a compatibility fallback
+# for older toolkit layouts.
+gaffa_find_ascend_library(GAFFA_ASCEND_DLOG_LIBRARY unified_dlog ascendalog)
+gaffa_find_ascend_library(GAFFA_ASCEND_MMPA_LIBRARY mmpa)
+gaffa_find_ascend_library(GAFFA_ASCEND_DUMP_LIBRARY ascend_dump)
+gaffa_find_ascend_library(GAFFA_ASCEND_CSEC_LIBRARY c_sec)
+gaffa_find_ascend_library(GAFFA_ASCEND_ERROR_MANAGER_LIBRARY error_manager)
+gaffa_find_ascend_library(GAFFA_ASCENDCL_LIBRARY ascendcl)
+
+add_library(gaffa_ascend_runtime INTERFACE)
+target_link_libraries(gaffa_ascend_runtime INTERFACE
+  ${GAFFA_ASCENDC_RUNTIME_LIBRARY}
+  ${GAFFA_ASCEND_RUNTIME_LIBRARY}
+  ${GAFFA_ASCEND_PROFAPI_LIBRARY}
+  ${GAFFA_ASCEND_DLOG_LIBRARY}
+  ${GAFFA_ASCEND_MMPA_LIBRARY}
+  ${GAFFA_ASCEND_DUMP_LIBRARY}
+  ${GAFFA_ASCEND_CSEC_LIBRARY}
+  ${GAFFA_ASCEND_ERROR_MANAGER_LIBRARY}
+  ${GAFFA_ASCENDCL_LIBRARY}
 )
 
 file(GLOB_RECURSE GAFFA_CORE_SOURCES CONFIGURE_DEPENDS
@@ -74,11 +114,6 @@ file(GLOB_RECURSE GAFFA_ASCEND_KERNEL_SOURCES CONFIGURE_DEPENDS
   src/gaffa/ascend_kernels/*.asc
 )
 
-# Keep AscendC translation units in a pure-ASC target. The ASC CMake toolchain
-# attaches BiSheng's default host runtime libraries (ascendc_runtime, runtime,
-# profapi, logging/error-management support, etc.) to this target. Mixing the
-# .asc objects into a CXX static library loses that ASC link interface when a
-# CXX executable/module performs the final link.
 add_library(gaffa_ascend_kernels STATIC
   ${GAFFA_ASCEND_KERNEL_SOURCES}
 )
@@ -103,7 +138,7 @@ target_include_directories(gaffa_core
 target_link_libraries(gaffa_core
   PUBLIC
     gaffa_ascend_kernels
-    ${GAFFA_ASCENDCL_LIBRARY}
+    gaffa_ascend_runtime
 )
 if(OpenMP_CXX_FOUND)
   target_link_libraries(gaffa_core PUBLIC OpenMP::OpenMP_CXX)
