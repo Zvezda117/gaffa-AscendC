@@ -3,6 +3,9 @@ set shell := ["bash", "-cu"]
 export-env:
     conda env export --from-history > environment.lock.yml
 
+verify-no-cuda:
+    python tools/verify_no_cuda.py
+
 conan-profile:
     source env/dev.sh && { test -f "$CONAN_HOME/profiles/default" || conan profile detect --force; }
 
@@ -102,7 +105,7 @@ coverage-cpp: deps
         --txt --xml-pretty --xml coverage/cpp.xml \
         --html-details coverage/cpp.html
 
-test-all: test test-cpp
+test-all: verify-no-cuda test test-cpp
 
 clean:
     rm -rf build dist *.egg-info
