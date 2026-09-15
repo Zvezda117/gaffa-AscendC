@@ -18,7 +18,7 @@ for symbol in [
     "PositiveFloatFloorToUint32",
     "AscendC::ScalarCast",
     "AscendC::RoundMode::CAST_FLOOR",
-    "AscendC::Sqrt",
+    "AscendC::Rsqrt",
 ]:
     assert symbol in text, symbol
 assert "DataCopyPad" in text
@@ -28,7 +28,6 @@ assert ".SetValue(" not in text, "avoid GlobalTensor scalar stores / DCache haza
 for forbidden in [
     "reinterpret_cast<GM_ADDR>(",
     "sqrtf(",
-    "AscendC::Rsqrt",
     "static_cast<float>(factor_",
     "static_cast<float>(sample)",
     "static_cast<float>(nsamples_)",
