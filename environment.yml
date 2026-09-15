@@ -11,6 +11,7 @@ dependencies:
   - just
   - scikit-build-core>=0.10
   - pybind11>=2.13
+  - gtest>=1.16
   - pytest>=8
   - pytest-cov
   - gcovr
@@ -20,6 +21,10 @@ dependencies:
 
 # The conda-forge c-compiler/cxx-compiler metapackages resolve to the native
 # compiler toolchain for the host platform (for example linux-64 or
-# linux-aarch64). CANN/BiSheng is intentionally not installed by Conda. Install
-# a compatible CANN development toolkit on the Atlas A2/A3 host and source its
-# set_env.sh before configuring or building GAFFA.
+# linux-aarch64). Host build/test dependencies such as CMake, pybind11 and
+# GoogleTest also come from Conda so Conan does not need to download upstream
+# source archives on restricted-network Ascend hosts.
+#
+# CANN/BiSheng is intentionally not installed by Conda. Install a compatible
+# CANN development toolkit on the Atlas A2/A3 host and source its set_env.sh
+# before configuring or building GAFFA.
